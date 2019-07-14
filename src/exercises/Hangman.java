@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -31,13 +33,18 @@ public class Hangman extends KeyAdapter {
 		hangman.createUI();
 	}
 
-	private void addPuzzles() {
-//		puzzles.push("defenestrate");
-//		puzzles.push("fancypants");
-//		puzzles.push("elements");
+	public void addPuzzles() {
 		List<String> words = FileHelper.loadFileContentsIntoArrayList("resource/words.txt");
 		Collections.shuffle(words);
 		words.forEach(str -> puzzles.push(str));
+		puzzles.push("defe#nestrate");
+		puzzles.push("fancypants");
+		puzzles.push("elemen7ts");
+		puzzles.push("Français");
+		puzzles.push("année");
+		puzzles.push("petit");
+		puzzles.push("aujourd'hui");
+		puzzles.push("123");
 	}
 
 	JPanel panel = new JPanel();
@@ -61,14 +68,23 @@ public class Hangman extends KeyAdapter {
 		removeBoxes();
 		lives = 9;
 		livesLabel.setText("" + lives);
-		puzzle = puzzles.pop();
-		System.out.println("puzzle is now " + puzzle);
-		createBoxes();
+		try {
+			puzzle = popPuzzle();
+			System.out.println("Puzzle is now " + puzzle);
+			createBoxes();
+		} catch (FoundSpecialCharacterException e) {
+			System.out.println("Puzzle " + puzzle + " contains special character(s). Loading a subsequent one...");
+			loadNextPuzzle();
+		}
 	}
 
 	public void keyTyped(KeyEvent arg0) {
 		System.out.println(arg0.getKeyChar());
-		updateBoxesWithUserInput(arg0.getKeyChar());
+		try {
+			updateBoxesWithUserInput(arg0.getKeyChar());
+		} catch (FoundSpecialCharacterException e) {
+			System.err.println("No special characters are allowed! Nor numbers.");
+		}
 		if (lives == 0 || checkUserInput()) {
 //			playDeathKnell();
 			JOptionPane.showMessageDialog(null, String.format("%s The puzzle was: %s.", endOfGame(), puzzle));
@@ -76,7 +92,9 @@ public class Hangman extends KeyAdapter {
 		}
 	}
 
-	private void updateBoxesWithUserInput(char keyChar) {
+	private void updateBoxesWithUserInput(char keyChar) throws FoundSpecialCharacterException {
+		if (containSpecialCharacter("" + keyChar))
+			throw new FoundSpecialCharacterException();
 		boolean gotOne = false;
 		for (int i = 0; i < puzzle.length(); i++) {
 			if (puzzle.charAt(i) == keyChar) {
@@ -95,7 +113,7 @@ public class Hangman extends KeyAdapter {
 			panel.add(textField);
 		}
 		panel.revalidate();
-		panel.repaint(); // to remove residue from the previous game 
+		panel.repaint(); // to remove residue from the previous game
 	}
 
 	void removeBoxes() {
@@ -128,5 +146,18 @@ public class Hangman extends KeyAdapter {
 		if (lives == 0)
 			return "Sorry, you lose!";
 		return String.format("Well done! You won the game with %d lives left.", lives);
+	}
+
+	public boolean containSpecialCharacter(String str) {
+		Pattern pattern = Pattern.compile("[^a-zA-Z]");
+		Matcher matcher = pattern.matcher(str);
+		return matcher.find();
+	}
+
+	public String popPuzzle() throws FoundSpecialCharacterException {
+		puzzle = puzzles.pop();
+		if (containSpecialCharacter(puzzle))
+			throw new FoundSpecialCharacterException();
+		return puzzle;
 	}
 }
